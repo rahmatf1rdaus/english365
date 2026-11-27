@@ -174,6 +174,8 @@ body.online .headrow{grid-template-areas:"home print" "week week"}body.online .h
 .score-context{font-size:16px;font-weight:700;color:var(--accent)}
 .summary-label{margin:8px 0 14px}
 .section-menu-list .section-menu-top{border-bottom:1px solid var(--line);border-radius:8px 8px 0 0;margin-bottom:2px}
+.audio-hint{font-size:16px;line-height:1.5;color:var(--muted);margin:6px 0 10px}
+@media print{.audio-hint{display:none!important}}
 </style></head><body><svg class="icon-sprite" width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><symbol id="icon-listen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14"/></symbol><symbol id="icon-translate" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5h12M7 2v3M4 8l7 6M11 5c-1 4-4 7-8 9M13 21l4-10 5 10M15 17h5"/></symbol><symbol id="icon-stop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor" stroke="none"/></symbol></defs></svg>
 <header><div class="headrow"><a class="home-link" href="../"><span aria-hidden="true">←</span> Semua minggu</a><div class="week">Week 01</div><details class="printmenu" id="printmenu"><summary>Cetak ▾</summary><div class="printchoices"><button type="button" id="print">Cetak hari ini</button><button type="button" id="print-reading">Cetak semua Reading</button><button type="button" id="print-reading-bilingual">Cetak semua Reading Bilingual</button><button type="button" id="print-speaking">Cetak semua Speaking</button><button type="button" id="print-speaking-bilingual">Cetak semua Speaking Bilingual</button></div></details></div><h1>My Everyday Life</h1><div class="small">Kehidupan sehari-hari · Level A1</div><p class="site-hint">Tampilan dasar: audio dan kuis belum aktif. Untuk versi lengkap, buka link ini: <a href="https://rahmatf1rdaus.github.io/english365/week01/">rahmatf1rdaus.github.io/<wbr>english365/<wbr>week01/<wbr></a></p><div id="notice" role="status" class="notice"></div></header>
 <main><nav class="material-nav" aria-label="Bagian buku"><a href="#daily" data-section="daily" aria-label="Materi Harian">Harian</a><a href="#summary-panel" data-section="summary" aria-label="Rangkuman Mingguan">Rangkuman</a><a href="#weekly" data-section="weekly" aria-label="Evaluasi Mingguan">Evaluasi Mingguan</a></nav>
@@ -330,7 +332,16 @@ function setAudioButton(b,playing){
   if(!text){const label=playing?'Hentikan audio':(b.dataset.audioLabel||'Dengarkan');b.setAttribute('aria-label',label);b.title=label;}
   b.setAttribute('aria-pressed',String(playing));
 }
-function stop(){seq++;try{if(window.speechSynthesis)window.speechSynthesis.cancel();}catch(e){}clearReadAlong();if(active){setAudioButton(active,false);active=null;}}
+// iPhone/iPad mute browser speech in silent mode and no page setting overrides it (tested on a real iPhone),
+// so while audio plays a short reminder sits right below the button that was tapped.
+const appleMobile=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+function showAudioHint(b){
+  if(!appleMobile)return;const host=b.closest('.tools,.listen-all')||b,hint=document.createElement('p');
+  hint.className='audio-hint';hint.textContent='Tidak ada suara? Matikan mode senyap.';
+  if(host.classList.contains('listen-all'))host.append(hint);else host.after(hint);
+}
+function clearAudioHint(){document.querySelectorAll('.audio-hint').forEach(el=>el.remove());}
+function stop(){seq++;try{if(window.speechSynthesis)window.speechSynthesis.cancel();}catch(e){}clearReadAlong();clearAudioHint();if(active){setAudioButton(active,false);active=null;}}
 function readAlongTargets(b){
   const question=b.closest('.questiontext');
   if(question)return [question.querySelector('[lang=en]'),...question.closest('.q').querySelectorAll('.option [lang=en]')];
@@ -369,10 +380,8 @@ function markReadAlong(el){
 }
 function speak(b){
   if(active===b){stop();return}stop();if(!window.speechSynthesis||typeof window.SpeechSynthesisUtterance!=='function'){ $('notice').textContent='Audio tidak tersedia pada browser ini.';return}
-  // iPhone mutes browser speech in silent mode; Safari 17+ lets a page ask for media playback, which the silent switch does not mute.
-  try{if(navigator.audioSession&&navigator.audioSession.type!=='playback')navigator.audioSession.type='playback';}catch(e){}
   const token=seq,synth=window.speechSynthesis;let v;try{v=synth.getVoices().find(v=>/^en[-_]us$/i.test(v.lang));}catch(e){}
-  active=b;setAudioButton(b,true);$('notice').textContent='';
+  active=b;setAudioButton(b,true);$('notice').textContent='';showAudioHint(b);
   try{readAlong=prepareReadAlong(b);}catch(e){clearReadAlong();readAlong={originals:[],chunks:[],highlight:null};}const chunks=readAlong.chunks.length?readAlong.chunks:[{text:b.dataset.speak,sentence:null,words:[]}];
   // Sentence-sized utterances provide real sentence highlighting even when word boundary events are unavailable.
   function play(index){
