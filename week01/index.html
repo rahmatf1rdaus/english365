@@ -369,6 +369,8 @@ function markReadAlong(el){
 }
 function speak(b){
   if(active===b){stop();return}stop();if(!window.speechSynthesis||typeof window.SpeechSynthesisUtterance!=='function'){ $('notice').textContent='Audio tidak tersedia pada browser ini.';return}
+  // iPhone mutes browser speech in silent mode; Safari 17+ lets a page ask for media playback, which the silent switch does not mute.
+  try{if(navigator.audioSession&&navigator.audioSession.type!=='playback')navigator.audioSession.type='playback';}catch(e){}
   const token=seq,synth=window.speechSynthesis;let v;try{v=synth.getVoices().find(v=>/^en[-_]us$/i.test(v.lang));}catch(e){}
   active=b;setAudioButton(b,true);$('notice').textContent='';
   try{readAlong=prepareReadAlong(b);}catch(e){clearReadAlong();readAlong={originals:[],chunks:[],highlight:null};}const chunks=readAlong.chunks.length?readAlong.chunks:[{text:b.dataset.speak,sentence:null,words:[]}];
