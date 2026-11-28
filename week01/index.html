@@ -186,6 +186,8 @@ body.online .headrow{grid-template-areas:"home print" "week week"}body.online .h
 @media print{.share-score,.share-note{display:none!important}}
 /* Useful Phrases sit under each day in Rangkuman, one step below the day heading. */
 .summary-card .subhead{font-size:16px;color:var(--accent);margin:26px 0 2px}
+.celebration{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:30}
+@media print{.celebration{display:none!important}}
 </style></head><body><svg class="icon-sprite" width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><symbol id="icon-listen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14"/></symbol><symbol id="icon-translate" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5h12M7 2v3M4 8l7 6M11 5c-1 4-4 7-8 9M13 21l4-10 5 10M15 17h5"/></symbol><symbol id="icon-stop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor" stroke="none"/></symbol></defs></svg>
 <header><div class="headrow"><a class="home-link" href="../"><span aria-hidden="true">←</span> Semua minggu</a><div class="week">Week 01</div><details class="printmenu" id="printmenu"><summary>Cetak ▾</summary><div class="printchoices"><button type="button" id="print">Cetak hari ini</button><button type="button" id="print-reading">Cetak semua Reading</button><button type="button" id="print-reading-bilingual">Cetak semua Reading Bilingual</button><button type="button" id="print-speaking">Cetak semua Speaking</button><button type="button" id="print-speaking-bilingual">Cetak semua Speaking Bilingual</button></div></details></div><h1>My Everyday Life</h1><div class="small">Kehidupan sehari-hari · Level A1</div><p class="site-hint">Tampilan dasar: audio dan kuis belum aktif. Untuk versi lengkap, buka link ini: <a href="https://rahmatf1rdaus.github.io/english365/week01/">rahmatf1rdaus.github.io/<wbr>english365/<wbr>week01/<wbr></a></p><div id="notice" role="status" class="notice"></div></header>
 <main><nav class="material-nav" aria-label="Bagian buku"><a href="#daily" data-section="daily" aria-label="Materi Harian">Harian</a><a href="#summary-panel" data-section="summary" aria-label="Rangkuman Mingguan">Rangkuman</a><a href="#weekly" data-section="weekly" aria-label="Evaluasi Mingguan">Evaluasi Mingguan</a></nav>
@@ -256,6 +258,42 @@ function toggleDailyFocus(){
  if(!focusMode){const q=$('lesson').querySelector(`[data-q="${states[current].index}"]`);if(q)q.scrollIntoView({block:'center'});}
  syncSectionMenu();
 }
+// Quiz effects, synthesized with Web Audio (no sound files): a bright "ding" for a right answer, a soft low "bonk" for a
+// wrong one, and a short fanfare with falling confetti when a finished quiz scores above 50. They only follow a tap.
+let fxAudio=null;
+function fxContext(){try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;if(!fxAudio)fxAudio=new C();if(fxAudio.state==='suspended')fxAudio.resume();return fxAudio;}catch(e){return null;}}
+function fxTone(ctx,freq,start,length,type,volume){
+ const o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.setValueAtTime(freq,start);
+ g.gain.setValueAtTime(0.0001,start);g.gain.exponentialRampToValueAtTime(volume,start+0.02);g.gain.exponentialRampToValueAtTime(0.0001,start+length);
+ o.connect(g);g.connect(ctx.destination);o.start(start);o.stop(start+length+0.05);
+}
+function playEffect(name){
+ document.dispatchEvent(new CustomEvent('english365:effect',{detail:name}));
+ const ctx=fxContext();if(!ctx)return;
+ try{
+  const t=ctx.currentTime+0.01;
+  if(name==='correct'){fxTone(ctx,880,t,0.16,'sine',0.18);fxTone(ctx,1318.5,t+0.1,0.28,'sine',0.16);}
+  else if(name==='wrong'){fxTone(ctx,220,t,0.2,'triangle',0.22);fxTone(ctx,174.6,t+0.16,0.32,'triangle',0.2);}
+  // The fanfare waits for the last answer's ding to finish.
+  else if(name==='celebrate'){[523.25,659.25,783.99,1046.5].forEach((f,i)=>fxTone(ctx,f,t+0.35+i*0.12,0.3,'triangle',0.16));fxTone(ctx,1318.5,t+0.87,0.55,'sine',0.12);}
+ }catch(e){}
+}
+function celebrate(){
+ playEffect('celebrate');
+ if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+ const c=document.createElement('canvas'),W=window.innerWidth,H=window.innerHeight,dpr=Math.min(window.devicePixelRatio||1,2);
+ c.className='celebration';c.setAttribute('aria-hidden','true');c.width=W*dpr;c.height=H*dpr;document.body.append(c);
+ const g=c.getContext('2d');if(!g){c.remove();return;}g.scale(dpr,dpr);
+ const colors=['#285d4e','#8eaf96','#e8b04b','#e07a5f','#4c8f83','#f2cc8f'];
+ const bits=Array.from({length:130},()=>({x:W/2+(Math.random()-0.5)*W*0.4,y:H*0.3,vx:(Math.random()-0.5)*10,vy:-4-Math.random()*10,s:6+Math.random()*6,r:Math.random()*6.3,vr:(Math.random()-0.5)*0.3,c:colors[Math.floor(Math.random()*colors.length)]}));
+ const start=performance.now();
+ function frame(now){
+  const t=now-start;g.clearRect(0,0,W,H);g.globalAlpha=Math.max(0,1-t/2600);
+  for(const b of bits){b.vy+=0.25;b.x+=b.vx;b.y+=b.vy;b.r+=b.vr;g.save();g.translate(b.x,b.y);g.rotate(b.r);g.fillStyle=b.c;g.fillRect(-b.s/2,-b.s/3,b.s,b.s*0.66);g.restore();}
+  if(t<2600&&c.isConnected)requestAnimationFrame(frame);else c.remove();
+ }
+ requestAnimationFrame(frame);
+}
 // Locks one question, highlights the key (and a wrong pick), and shows the Indonesian explanation.
 function markQuestion(root,q,i,answer){
  const el=root.querySelector(`[data-q="${i}"]`),ok=answer===q.correct;
@@ -272,6 +310,7 @@ function showScore(){
  const box=root.querySelector('[data-score]');box.hidden=false;box.innerHTML=`<div class="score-context">Week ${esc(book.week)} · ${where}</div><strong>${score}/100</strong><div>${n} dari ${questions.length} benar</div><div class="small">Nilai percobaan pertama: ${s.first}/100</div><button type="button" class="primary share-score" data-share-score>Kirim gambar nilai</button><p class="share-note" data-share-note role="status"></p>`;
  const check=root.querySelector('[data-check]');if(check)check.disabled=true;syncQuizActions();
  if(current<days.length){const badge=$('tabs').querySelector(`[data-day="${current}"] span`);if(badge)badge.textContent='✓';}
+ return score;
 }
 // Score picture for reporting a finished quiz: drawn on a canvas (no names), shared through the device's share menu
 // (WhatsApp is chosen there; a web page cannot open WhatsApp with a picture directly). Built synchronously inside the tap,
@@ -305,12 +344,13 @@ function shareScore(button){
  const url=URL.createObjectURL(file),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
  note.textContent='Gambar nilai sudah diunduh. Kirim lewat WhatsApp sebagai foto.';
 }
-function results(){const questions=quizQuestions(),s=states[current],root=quizRoot();questions.forEach((q,i)=>markQuestion(root,q,i,s.answers[i]));showScore();}
+function results(){const questions=quizQuestions(),s=states[current],root=quizRoot();questions.forEach((q,i)=>markQuestion(root,q,i,s.answers[i]));return showScore();}
 function changeAnswer(e){
  if(!e.target.matches('input[type=radio]'))return;
  const s=states[current],i=+e.target.closest('[data-q]').dataset.q;s.answers[i]=+e.target.value;
  // Daily quizzes give feedback right away and score once every question is answered; the Weekly Quiz waits for "Periksa jawaban".
- if(current<days.length){markQuestion(quizRoot(),quizQuestions()[i],i,s.answers[i]);if(!s.answers.includes(null)){s.checked=true;showScore();}}
+ // The celebration plays only at the moment a quiz is finished, not when a finished quiz is shown again.
+ if(current<days.length){const q=quizQuestions()[i];markQuestion(quizRoot(),q,i,s.answers[i]);playEffect(s.answers[i]===q.correct?'correct':'wrong');if(!s.answers.includes(null)){s.checked=true;if(showScore()>50)celebrate();}}
  update();
 }
 function contentClick(e){
@@ -322,7 +362,7 @@ function contentClick(e){
  if(b.hasAttribute('data-quiz-prev')||b.hasAttribute('data-quiz-next')){stop();const s=states[current];applyQuizFocus(Math.max(0,Math.min(s.answers.length-1,s.index+(b.hasAttribute('data-quiz-next')?1:-1))));return;}
  if(b.hasAttribute('data-translate')){const p=b.closest('.pair,.questiontext'),t=p.querySelector('.translation');t.hidden=!t.hidden;const label=t.hidden?'Tampilkan terjemahan':'Sembunyikan terjemahan';b.setAttribute('aria-label',label);b.title=label;b.setAttribute('aria-expanded',String(!t.hidden));if(p.classList.contains('questiontext'))p.closest('.q').querySelectorAll('.optr').forEach(x=>x.hidden=t.hidden);return;}
  if(b.hasAttribute('data-example')){const t=b.nextElementSibling;t.hidden=!t.hidden;b.textContent=t.hidden?'Tampilkan contoh jawaban':'Sembunyikan contoh jawaban';b.setAttribute('aria-expanded',String(!t.hidden));return;}
- if(b.hasAttribute('data-check')){const s=states[current],missing=s.answers.indexOf(null),root=quizRoot();if(missing>=0){root.querySelector('[data-quiz-message]').textContent='Jawab semua soal terlebih dahulu.';if(quizFocusOn())applyQuizFocus(missing);root.querySelector(`[data-q="${missing}"]`).scrollIntoView({block:'center'});return;}s.checked=true;root.querySelector('[data-quiz-message]').textContent='';results();root.querySelector('[data-score]').scrollIntoView({block:'center'});}
+ if(b.hasAttribute('data-check')){const s=states[current],missing=s.answers.indexOf(null),root=quizRoot();if(missing>=0){root.querySelector('[data-quiz-message]').textContent='Jawab semua soal terlebih dahulu.';if(quizFocusOn())applyQuizFocus(missing);root.querySelector(`[data-q="${missing}"]`).scrollIntoView({block:'center'});return;}s.checked=true;root.querySelector('[data-quiz-message]').textContent='';if(results()>50)celebrate();root.querySelector('[data-score]').scrollIntoView({block:'center'});}
  if(b.hasAttribute('data-retry')){const s=states[current];s.answers.fill(null);s.checked=false;s.index=0;current===days.length?renderWeeklyQuiz():render();quizRoot().querySelector('[data-answered]').scrollIntoView({block:'center'});}
 }
 function selectDaily(index){if(index<0||index>=days.length)return;stop();exitFocus();lastDay=index;sectionView='daily';$('daily').hidden=false;$('weekly').hidden=true;$('summary-panel').hidden=true;render();markSection('daily');window.scrollTo(0,0);syncSectionMenu();}
