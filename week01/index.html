@@ -182,6 +182,8 @@ body.online .headrow{grid-template-areas:"home print" "week week"}body.online .h
 .enhanced .summary-card{display:none}.enhanced .summary-card.selected{display:block}
 @media(max-width:600px){.summary-card{padding:24px 18px;border-radius:14px}}
 @media print{.summary-nav{display:none!important}}
+.share-score{margin-top:16px}.share-note{font-size:16px;color:var(--muted);margin:8px 0 0}.share-note:empty{display:none}
+@media print{.share-score,.share-note{display:none!important}}
 </style></head><body><svg class="icon-sprite" width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><symbol id="icon-listen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14"/></symbol><symbol id="icon-translate" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5h12M7 2v3M4 8l7 6M11 5c-1 4-4 7-8 9M13 21l4-10 5 10M15 17h5"/></symbol><symbol id="icon-stop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor" stroke="none"/></symbol></defs></svg>
 <header><div class="headrow"><a class="home-link" href="../"><span aria-hidden="true">←</span> Semua minggu</a><div class="week">Week 01</div><details class="printmenu" id="printmenu"><summary>Cetak ▾</summary><div class="printchoices"><button type="button" id="print">Cetak hari ini</button><button type="button" id="print-reading">Cetak semua Reading</button><button type="button" id="print-reading-bilingual">Cetak semua Reading Bilingual</button><button type="button" id="print-speaking">Cetak semua Speaking</button><button type="button" id="print-speaking-bilingual">Cetak semua Speaking Bilingual</button></div></details></div><h1>My Everyday Life</h1><div class="small">Kehidupan sehari-hari · Level A1</div><p class="site-hint">Tampilan dasar: audio dan kuis belum aktif. Untuk versi lengkap, buka link ini: <a href="https://rahmatf1rdaus.github.io/english365/week01/">rahmatf1rdaus.github.io/<wbr>english365/<wbr>week01/<wbr></a></p><div id="notice" role="status" class="notice"></div></header>
 <main><nav class="material-nav" aria-label="Bagian buku"><a href="#daily" data-section="daily" aria-label="Materi Harian">Harian</a><a href="#summary-panel" data-section="summary" aria-label="Rangkuman Mingguan">Rangkuman</a><a href="#weekly" data-section="weekly" aria-label="Evaluasi Mingguan">Evaluasi Mingguan</a></nav>
@@ -265,9 +267,41 @@ function showScore(){
  const score=Math.round(n/questions.length*100);if(s.first===null)s.first=score;
  // The week and quiz name sit above the score so a screenshot of it says which quiz it was.
  const where=current<days.length?`Day ${current+1}`:'Weekly Quiz';
- const box=root.querySelector('[data-score]');box.hidden=false;box.innerHTML=`<div class="score-context">Week ${esc(book.week)} · ${where}</div><strong>${score}/100</strong><div>${n} dari ${questions.length} benar</div><div class="small">Nilai percobaan pertama: ${s.first}/100</div>`;
+ const box=root.querySelector('[data-score]');box.hidden=false;box.innerHTML=`<div class="score-context">Week ${esc(book.week)} · ${where}</div><strong>${score}/100</strong><div>${n} dari ${questions.length} benar</div><div class="small">Nilai percobaan pertama: ${s.first}/100</div><button type="button" class="primary share-score" data-share-score>Kirim gambar nilai</button><p class="share-note" data-share-note role="status"></p>`;
  const check=root.querySelector('[data-check]');if(check)check.disabled=true;syncQuizActions();
  if(current<days.length){const badge=$('tabs').querySelector(`[data-day="${current}"] span`);if(badge)badge.textContent='✓';}
+}
+// Score picture for reporting a finished quiz: drawn on a canvas (no names), shared through the device's share menu
+// (WhatsApp is chosen there; a web page cannot open WhatsApp with a picture directly). Built synchronously inside the tap,
+// because Safari only allows sharing during the tap itself. Without file sharing the picture is downloaded instead.
+function scoreImage(info){
+ const c=document.createElement('canvas');c.width=1080;c.height=1080;const g=c.getContext('2d'),W=1080,sans='system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
+ g.fillStyle='#f1efe6';g.fillRect(0,0,W,W);
+ const x=80,y=80,w=920,h=920,r=48;g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath();
+ g.fillStyle='#fffefa';g.fill();g.lineWidth=3;g.strokeStyle='#e3e0d4';g.stroke();
+ g.textAlign='center';g.textBaseline='alphabetic';
+ const line=(text,top,size,weight,color,family=sans)=>{let s=size;do{g.font=`${weight} ${s}px ${family}`;s-=2;}while(g.measureText(text).width>820&&s>20);g.fillStyle=color;g.fillText(text,W/2,top);};
+ line('English 365',215,64,'700','#204c3f','Georgia,serif');
+ line(info.where,310,50,'700','#285d4e');
+ line(info.title,378,42,'400','#53645c');
+ g.fillStyle='#edf3e9';g.fillRect(180,430,720,2);
+ line(`${info.score}/100`,640,190,'800','#204c3f');
+ line(`${info.n} dari ${info.total} benar`,730,48,'600','#273b34');
+ line(`Nilai percobaan pertama: ${info.first}/100`,805,38,'400','#53645c');
+ line(info.date,905,36,'400','#53645c');
+ return c;
+}
+function canvasFile(c,name){const bin=atob(c.toDataURL('image/png').split(',')[1]),bytes=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);return new File([bytes],name,{type:'image/png'});}
+function shareScore(button){
+ const s=states[current],questions=quizQuestions(),n=questions.filter((q,i)=>s.answers[i]===q.correct).length,score=Math.round(n/questions.length*100);
+ const daily=current<days.length,where=`Week ${book.week} · ${daily?'Day '+(current+1):'Weekly Quiz'}`,note=button.parentElement.querySelector('[data-share-note]');
+ const name=`English365-Week${book.week}-${daily?'Day'+(current+1):'WeeklyQuiz'}.png`;note.textContent='';
+ let file;
+ try{file=canvasFile(scoreImage({where,title:daily?days[current].title:book.title,score,n,total:questions.length,first:s.first,date:new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})}),name);}
+ catch(e){note.textContent='Gambar nilai tidak dapat dibuat. Kirim screenshot layar ini saja.';return;}
+ try{if(navigator.canShare&&navigator.share&&navigator.canShare({files:[file]})){navigator.share({files:[file],text:`${where} selesai. Nilai: ${score}/100`}).catch(()=>{});return;}}catch(e){}
+ const url=URL.createObjectURL(file),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
+ note.textContent='Gambar nilai sudah diunduh. Kirim lewat WhatsApp sebagai foto.';
 }
 function results(){const questions=quizQuestions(),s=states[current],root=quizRoot();questions.forEach((q,i)=>markQuestion(root,q,i,s.answers[i]));showScore();}
 function changeAnswer(e){
@@ -281,6 +315,7 @@ function contentClick(e){
  const b=e.target.closest('button');if(!b)return;
  if(b.hasAttribute('data-speak')){speak(b);return;}
  if(b.hasAttribute('data-jump')){const target=$(b.dataset.jump);if(target)target.scrollIntoView({block:'start'});return;}
+ if(b.hasAttribute('data-share-score')){shareScore(b);return;}
  if(b.hasAttribute('data-focus')){toggleDailyFocus();return;}
  if(b.hasAttribute('data-quiz-prev')||b.hasAttribute('data-quiz-next')){stop();const s=states[current];applyQuizFocus(Math.max(0,Math.min(s.answers.length-1,s.index+(b.hasAttribute('data-quiz-next')?1:-1))));return;}
  if(b.hasAttribute('data-translate')){const p=b.closest('.pair,.questiontext'),t=p.querySelector('.translation');t.hidden=!t.hidden;const label=t.hidden?'Tampilkan terjemahan':'Sembunyikan terjemahan';b.setAttribute('aria-label',label);b.title=label;b.setAttribute('aria-expanded',String(!t.hidden));if(p.classList.contains('questiontext'))p.closest('.q').querySelectorAll('.optr').forEach(x=>x.hidden=t.hidden);return;}
